@@ -68,7 +68,7 @@ class WhisperTranscriber(QObject):
     def load_model(self):
         try:
             settings = Settings()
-            model_name = settings.get('model', 'turbo')
+            model_name = settings.get('model', 'tiny')
             logger.info(f"Loading Whisper model: {model_name}")
             
             # Redirect whisper's logging to our logger

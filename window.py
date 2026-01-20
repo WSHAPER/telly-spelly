@@ -156,7 +156,7 @@ class WhisperWindow(QMainWindow):
         model_frame = ModernFrame("Whisper Model")
         self.model_combo = QComboBox()
         self.model_combo.addItems(['tiny', 'base', 'small', 'medium', 'large', 'turbo'])
-        self.model_combo.setCurrentText(self.settings.get('model', 'turbo'))
+        self.model_combo.setCurrentText(self.settings.get('model', 'tiny'))
         model_frame.content_layout.addWidget(self.model_combo)
         main_layout.addWidget(model_frame)
         

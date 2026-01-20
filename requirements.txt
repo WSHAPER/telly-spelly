@@ -2,4 +2,5 @@ PyQt6
 numpy
 pyaudio
 scipy
+keyboard
 evdev
