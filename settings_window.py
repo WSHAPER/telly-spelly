@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QComboBox, 
                             QGroupBox, QFormLayout, QProgressBar, QPushButton,
-                            QLineEdit, QMessageBox)
+                            QLineEdit, QMessageBox, QCheckBox)
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 import logging
 import keyboard
@@ -71,15 +71,20 @@ class SettingsWindow(QWidget):
         self.model_combo.currentTextChanged.connect(self.on_model_changed)
         model_layout.addRow("Whisper Model:", self.model_combo)
         
+        self.auto_detect_cb = QCheckBox("Auto-detect language")
+        auto_detect = self.settings.get('auto_detect', True)
+        self.auto_detect_cb.setChecked(auto_detect)
+        self.auto_detect_cb.toggled.connect(self.on_auto_detect_changed)
+        model_layout.addRow(self.auto_detect_cb)
+        
         self.lang_combo = QComboBox()
-        # Add all supported languages
         for code, name in Settings.VALID_LANGUAGES.items():
             self.lang_combo.addItem(name, code)
-        current_lang = self.settings.get('language', 'auto')
-        # Find and set the current language
+        current_lang = self.settings.get('language', 'en')
         index = self.lang_combo.findData(current_lang)
         if index >= 0:
             self.lang_combo.setCurrentIndex(index)
+        self.lang_combo.setEnabled(not auto_detect)
         self.lang_combo.currentIndexChanged.connect(self.on_language_changed)
         model_layout.addRow("Language:", self.lang_combo)
         
@@ -163,6 +168,13 @@ class SettingsWindow(QWidget):
         except Exception as e:
             logger.error(f"Failed to enumerate audio devices: {e}")
             self.device_combo.addItem("Default Microphone", 0)
+
+    def on_auto_detect_changed(self, checked):
+        self.lang_combo.setEnabled(not checked)
+        try:
+            self.settings.set('auto_detect', checked)
+        except ValueError as e:
+            logger.error(f"Failed to set auto_detect: {e}")
 
     def on_language_changed(self, index):
         language_code = self.lang_combo.currentData()
