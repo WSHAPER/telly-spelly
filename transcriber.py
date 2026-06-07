@@ -7,14 +7,15 @@ from settings import Settings
 logger = logging.getLogger(__name__)
 
 class TranscriptionWorker(QThread):
-    finished = pyqtSignal(str)
+    finished = pyqtSignal(str, str)
     progress = pyqtSignal(str)
     error = pyqtSignal(str)
     
-    def __init__(self, model, audio_file):
+    def __init__(self, model, audio_file, language=None):
         super().__init__()
         self.model = model
         self.audio_file = audio_file
+        self.language = language
         
     def run(self):
         try:
@@ -23,28 +24,27 @@ class TranscriptionWorker(QThread):
                 
             self.progress.emit("Loading audio file...")
             
-            # Load and transcribe
             self.progress.emit("Processing audio with Whisper...")
             result = self.model.transcribe(
                 self.audio_file,
                 fp16=False,
-                language='en'
+                language=self.language
             )
             
             text = result["text"].strip()
+            detected_lang = result.get("language", "")
             if not text:
                 raise ValueError("No text was transcribed")
                 
             self.progress.emit("Transcription completed!")
             logger.info(f"Transcribed text: {text[:100]}...")
-            self.finished.emit(text)
+            self.finished.emit(text, detected_lang)
             
         except Exception as e:
             logger.error(f"Transcription error: {e}")
             self.error.emit(f"Transcription failed: {str(e)}")
-            self.finished.emit("")
+            self.finished.emit("", "")
         finally:
-            # Clean up the temporary file
             try:
                 if os.path.exists(self.audio_file):
                     os.remove(self.audio_file)
@@ -53,7 +53,7 @@ class TranscriptionWorker(QThread):
 
 class WhisperTranscriber(QObject):
     transcription_progress = pyqtSignal(str)
-    transcription_finished = pyqtSignal(str)
+    transcription_finished = pyqtSignal(str, str)
     transcription_error = pyqtSignal(str)
     
     def __init__(self):
@@ -88,50 +88,18 @@ class WhisperTranscriber(QObject):
                 self.worker.deleteLater()
                 self.worker = None
                 
-    def transcribe(self, audio_file):
-        """Transcribe audio file using Whisper"""
-        try:
-            settings = Settings()
-            language = settings.get('language', 'auto')
-            
-            # Emit progress update
-            self.transcription_progress.emit("Processing audio...")
-            
-            # Run transcription with language setting
-            result = self.model.transcribe(
-                audio_file,
-                fp16=False,
-                language=None if language == 'auto' else language
-            )
-            
-            text = result["text"].strip()
-            if not text:
-                raise ValueError("No text was transcribed")
-                
-            self.transcription_progress.emit("Transcription completed!")
-            logger.info(f"Transcribed text: {text[:100]}...")
-            self.transcription_finished.emit(text)
-            
-            # Clean up the temporary file
-            try:
-                if os.path.exists(audio_file):
-                    os.remove(audio_file)
-            except Exception as e:
-                logger.error(f"Failed to remove temporary file: {e}")
-            
-        except Exception as e:
-            logger.error(f"Transcription failed: {e}")
-            self.transcription_error.emit(str(e))
-
     def transcribe_file(self, audio_file):
         if self.worker and self.worker.isRunning():
             logger.warning("Transcription already in progress")
             return
             
-        # Emit initial progress status before starting worker
+        settings = Settings()
+        auto_detect = settings.get('auto_detect', True)
+        language = None if auto_detect else settings.get('language', 'en')
+            
         self.transcription_progress.emit("Starting transcription...")
             
-        self.worker = TranscriptionWorker(self.model, audio_file)
+        self.worker = TranscriptionWorker(self.model, audio_file, language=language)
         self.worker.finished.connect(self.transcription_finished)
         self.worker.progress.connect(self.transcription_progress)
         self.worker.error.connect(self.transcription_error)

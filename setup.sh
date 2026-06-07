@@ -42,4 +42,12 @@ elif [ -f /etc/debian_version ]; then
     sudo apt-get update && sudo apt-get install -y portaudio19-dev python3-dev
 fi
 
+# Add user to input group for global hotkeys on Wayland
+# (evdev requires access to /dev/input/event* devices)
+if ! groups | grep -q '\binput\b'; then
+    echo "Adding user to 'input' group for global hotkey support..."
+    sudo usermod -aG input "$USER"
+    echo "NOTE: Log out and back in for group changes to take effect."
+fi
+
 echo "Setup complete! Run 'source venv/bin/activate' to activate the virtual environment" 

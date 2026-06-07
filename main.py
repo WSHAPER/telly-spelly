@@ -110,8 +110,11 @@ class TrayRecorder(QSystemTrayIcon):
         # Create menu
         self.setup_menu()
         
-        # Setup global shortcuts
-        if not self.shortcuts.setup_shortcuts():
+        # Setup global shortcuts from saved settings
+        settings = Settings()
+        start_key = settings.get('start_shortcut', 'ctrl+alt+r')
+        stop_key = settings.get('stop_shortcut', 'ctrl+alt+s')
+        if not self.shortcuts.setup_shortcuts(start_key, stop_key):
             logger.warning("Failed to register global shortcuts")
             
     def setup_menu(self):
@@ -272,12 +275,16 @@ class TrayRecorder(QSystemTrayIcon):
         if self.progress_window:
             self.progress_window.set_status(status)
     
-    def handle_transcription_finished(self, text):
+    def handle_transcription_finished(self, text, detected_language=""):
         if text:
-            # Copy text to clipboard
             QApplication.clipboard().setText(text)
+            message = "Text has been copied to clipboard"
+            if detected_language:
+                from settings import Settings
+                lang_name = Settings.VALID_LANGUAGES.get(detected_language, detected_language)
+                message = f"Detected: {lang_name}\nText copied to clipboard"
             self.showMessage("Transcription Complete", 
-                           "Text has been copied to clipboard",
+                           message,
                            self.normal_icon)
         
         # Close the progress window

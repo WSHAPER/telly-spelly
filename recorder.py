@@ -87,11 +87,11 @@ class AudioRecorder(QObject):
                 try:
                     audio_data = np.frombuffer(in_data, dtype=np.int16)
                     if len(audio_data) > 0:
-                        # Calculate RMS with protection against zero/negative values
-                        squared = np.abs(audio_data)**2
-                        mean_squared = np.mean(squared) if np.any(squared) else 0
-                        rms = np.sqrt(mean_squared) if mean_squared > 0 else 0
-                        # Normalize to 0-1 range
+                        # Convert to float to avoid int16 overflow when squaring
+                        audio_float = audio_data.astype(np.float64)
+                        # Calculate RMS
+                        rms = np.sqrt(np.mean(audio_float**2))
+                        # Normalize to 0-1 range (32768 is max int16 amplitude)
                         volume = min(1.0, max(0.0, rms / 32768.0))
                     else:
                         volume = 0.0
