@@ -19,6 +19,7 @@ import sys
 from pathlib import Path
 
 REPO_DIR = Path(__file__).resolve().parent
+HOME_APPLICATIONS = Path.home() / ".local/share/applications"
 
 
 def ensure_uv():
@@ -54,6 +55,39 @@ def link():
         return False
 
 
+def doctor():
+    """Verify all installed links resolve (delegates to link.py doctor)."""
+    print("Verifying installation ...")
+    try:
+        subprocess.check_call([sys.executable, str(REPO_DIR / "link.py"), "doctor"])
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
+
+def refresh_caches():
+    """Ask the desktop to notice the (re)linked entry and icon.
+
+    KDE caches icon lookups negatively while a symlink dangles, so a
+    fresh install or restore otherwise shows a blank menu icon until the
+    next login. Best-effort: missing tools or failures are non-fatal.
+    """
+    print("Refreshing desktop caches ...")
+    commands = (
+        ["kbuildsycoca6", "--noincremental"],
+        ["update-desktop-database", str(HOME_APPLICATIONS)],
+    )
+    for cmd in commands:
+        if shutil.which(cmd[0]) is None:
+            print(f"  skipped (not installed): {cmd[0]}")
+            continue
+        try:
+            subprocess.check_call(cmd)
+        except subprocess.CalledProcessError as e:
+            print(f"  {cmd[0]} failed (non-fatal): {e}")
+    return True
+
+
 def main():
     print("Telly Spelly installer\n")
     if not ensure_uv():
@@ -62,11 +96,15 @@ def main():
         return 1
     if not link():
         return 1
+    if not doctor():
+        return 1
+    refresh_caches()
 
     print("\nInstallation complete.")
     print("Launch 'Telly Spelly' from your application menu, or run "
           "`telly-spelly`.")
-    print("You may need to log out and back in for the menu entry to appear.")
+    print("If the menu icon shows blank, restart plasmashell or log out "
+          "and back in (icon lookups are cached per session).")
     return 0
 
 

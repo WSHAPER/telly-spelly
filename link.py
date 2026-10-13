@@ -76,15 +76,49 @@ def cmd_unlink():
             print(f"  not found: {target}")
 
 
+def cmd_doctor():
+    """Verify every installed link/file still resolves.
+
+    Catches the repo-moved-or-restored case: a dangling icon symlink leaves
+    a blank start-menu entry until links are repaired and caches refreshed.
+    """
+    ok = True
+
+    def report(good, path, note=""):
+        nonlocal ok
+        if not good:
+            ok = False
+        print(f"  [{'ok    ' if good else 'BROKEN'}] {path}{note}")
+
+    for target, source in SYMLINKS.items():
+        good = (
+            target.is_symlink()
+            and target.exists()
+            and target.resolve() == source.resolve()
+        )
+        report(good, target, f" -> {source}")
+    for target in GENERATED:
+        report(target.exists(), target)
+    venv_python = REPO_DIR / ".venv/bin/python"
+    report(venv_python.exists(), venv_python)
+    if not ok:
+        print("\nBroken install detected. Repair with:")
+        print(f"  {sys.executable} {REPO_DIR / 'install.py'}")
+    return ok
+
+
 def main():
-    if len(sys.argv) < 2 or sys.argv[1] not in ("link", "unlink"):
-        print(f"Usage: {sys.argv[0]} [link|unlink]")
+    if len(sys.argv) < 2 or sys.argv[1] not in ("link", "unlink", "doctor"):
+        print(f"Usage: {sys.argv[0]} [link|unlink|doctor]")
         sys.exit(1)
 
     action = sys.argv[1]
-    print(f"{action.capitalize()}ing {APP_NAME}...")
+    print(f"{action.capitalize()}ing {APP_NAME}..." if action != "doctor" else "Checking install state...")
     if action == "link":
         cmd_link()
+    elif action == "doctor":
+        if not cmd_doctor():
+            sys.exit(1)
     else:
         cmd_unlink()
     print("Done.")
